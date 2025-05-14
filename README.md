@@ -1,73 +1,85 @@
-# Welcome to your Lovable project
 
-## Project info
+# Academia em Dia - Sistema de Gestão para Academias
 
-**URL**: https://lovable.dev/projects/69146c45-cf78-4c7e-a49f-69cf1e498102
+Sistema completo para gerenciamento de academias, escolas de dança e estúdios de pilates.
 
-## How can I edit this code?
+## Configuração do Projeto
 
-There are several ways of editing your application.
+### Requisitos
 
-**Use Lovable**
+- Node.js 18 ou superior
+- NPM ou Yarn
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/69146c45-cf78-4c7e-a49f-69cf1e498102) and start prompting.
+### Frontend (React)
 
-Changes made via Lovable will be committed automatically to this repo.
+1. Clone o repositório
+2. Copie o arquivo `.env.example` para `.env.local`
+3. Configure as variáveis de ambiente com suas credenciais do Supabase:
+   ```
+   VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+   VITE_SUPABASE_ANON_KEY=sua-chave-anon
+   ```
+4. Instale as dependências:
+   ```
+   npm install
+   ```
+5. Inicie o servidor de desenvolvimento:
+   ```
+   npm run dev
+   ```
 
-**Use your preferred IDE**
+### Backend (NestJS)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. Navegue até a pasta do backend:
+   ```
+   cd backend
+   ```
+2. Copie o arquivo `.env.example` para `.env`
+3. Configure as variáveis de ambiente com suas credenciais:
+   ```
+   SUPABASE_URL=https://seu-projeto.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=sua-chave-service-role
+   SUPABASE_JWT_SECRET=seu-jwt-secret
+   PORT=3000
+   ```
+4. Instale as dependências:
+   ```
+   npm install
+   ```
+5. Inicie o servidor de desenvolvimento:
+   ```
+   npm run start:dev
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Banco de Dados
 
-Follow these steps:
+Execute as seguintes migrações no Supabase SQL Editor:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```sql
+-- Tabela de usuários vinculada ao auth.users
+create table public.usuarios (
+  id uuid primary key references auth.users on delete cascade,
+  nome text not null,
+  email text not null,
+  role text default 'Administrador',
+  academy_id uuid not null,
+  created_at timestamp default now()
+);
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+-- Configuração de RLS (Row Level Security)
+alter table usuarios enable row level security;
+create policy "próprio usuário"
+  on usuarios for select using ( auth.uid() = id );
 ```
 
-**Edit a file directly in GitHub**
+## Funcionalidades
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Sistema de autenticação completo (login/cadastro)
+- Dashboard com indicadores de performance
+- Gerenciamento de alunos
+- Controle de mensalidades
+- Relatórios financeiros
 
-**Use GitHub Codespaces**
+## Licença
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/69146c45-cf78-4c7e-a49f-69cf1e498102) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Todos os direitos reservados.
