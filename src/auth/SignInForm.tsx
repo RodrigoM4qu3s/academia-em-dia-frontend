@@ -3,12 +3,13 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const formSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -19,6 +20,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function SignInForm() {
   const { signIn, isLoading } = useAuth();
+  const navigate = useNavigate();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -29,13 +31,19 @@ export function SignInForm() {
   });
 
   const onSubmit = async (values: FormValues) => {
-    await signIn(values.email, values.password);
+    try {
+      await signIn(values.email, values.password);
+      toast.success('Login realizado com sucesso!');
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao fazer login');
+    }
   };
 
   return (
-    <div className="form-card animate-fade-in">
-      <div className="form-title">Login</div>
-      <div className="form-subtitle">Entre com suas credenciais para acessar o sistema</div>
+    <div className="form-card w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg animate-fade-in">
+      <div className="form-title mb-2 text-2xl font-bold">Login</div>
+      <div className="form-subtitle mb-6 text-sm text-muted-foreground">Entre com suas credenciais para acessar o sistema</div>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -92,7 +100,7 @@ export function SignInForm() {
         </form>
       </Form>
       
-      <div className="form-footer">
+      <div className="form-footer mt-6 text-center text-sm">
         Não possui uma conta?{' '}
         <Link to="/registro" className="text-primary hover:underline">
           Criar conta

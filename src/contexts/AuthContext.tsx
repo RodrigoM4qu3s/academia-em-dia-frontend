@@ -1,7 +1,7 @@
 
 import React, { createContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -35,6 +35,21 @@ export const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
 });
 
+// Função para limpar o estado de autenticação
+const cleanupAuthState = () => {
+  localStorage.removeItem('supabase.auth.token');
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  Object.keys(sessionStorage || {}).forEach((key) => {
+    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+      sessionStorage.removeItem(key);
+    }
+  });
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -44,33 +59,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const setupAuth = async () => {
-      // Get initial session
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      setSession(initialSession);
-      setUser(initialSession?.user || null);
-      
-      if (initialSession?.user) {
-        await fetchUserProfile(initialSession.user.id);
-      }
+      try {
+        // Configurar ouvinte de eventos de autenticação primeiro
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, newSession) => {
+            console.log('Auth state changed:', event);
+            setSession(newSession);
+            setUser(newSession?.user || null);
 
-      // Set up auth state listener
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, newSession) => {
-          setSession(newSession);
-          setUser(newSession?.user || null);
-
-          if (newSession?.user) {
-            await fetchUserProfile(newSession.user.id);
-          } else {
-            setProfile(null);
+            if (event === 'SIGNED_IN' && newSession?.user) {
+              // Usar setTimeout para evitar deadlocks
+              setTimeout(async () => {
+                await fetchUserProfile(newSession.user.id);
+              }, 0);
+            } else if (event === 'SIGNED_OUT') {
+              setProfile(null);
+              setUser(null);
+              setSession(null);
+            }
           }
-        }
-      );
+        );
 
-      setIsLoading(false);
-      
-      // Cleanup subscription
-      return () => subscription.unsubscribe();
+        // Depois verificar a sessão atual
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        console.log('Initial session:', initialSession);
+        setSession(initialSession);
+        setUser(initialSession?.user || null);
+        
+        if (initialSession?.user) {
+          await fetchUserProfile(initialSession.user.id);
+        }
+
+        setIsLoading(false);
+        
+        // Limpar inscrição
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('Erro ao configurar autenticação:', error);
+        setIsLoading(false);
+      }
     };
 
     setupAuth();
@@ -78,16 +107,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('Buscando perfil para usuário:', userId);
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
         .eq('id', userId)
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+        throw error;
+      }
       
       if (data) {
+        console.log('Perfil encontrado:', data);
         setProfile(data as UserProfile);
+      } else {
+        console.warn('Nenhum perfil encontrado para o usuário:', userId);
+        setProfile(null);
       }
     } catch (error) {
       console.error('Erro ao carregar perfil do usuário:', error);
@@ -98,6 +135,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      
+      // Limpar estado de autenticação anterior
+      cleanupAuthState();
+      
+      // Tentar fazer logout global para garantir estado limpo
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continuar mesmo se falhar
+        console.warn('Falha ao fazer logout global antes do login:', err);
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -109,14 +158,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data && data.user) {
         await fetchUserProfile(data.user.id);
-        navigate('/dashboard');
         toast.success('Login realizado com sucesso!');
       }
     } catch (error: any) {
       console.error('Erro de login:', error);
-      toast.error(error.message === 'Invalid login credentials'
-        ? 'Credenciais inválidas'
-        : 'Erro ao fazer login. Tente novamente.');
+      
+      let errorMessage = 'Erro ao fazer login. Tente novamente.';
+      if (error.message === 'Invalid login credentials') {
+        errorMessage = 'Credenciais inválidas';
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.';
+      }
+      
+      toast.error(errorMessage);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +180,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (nome: string, email: string, password: string) => {
     try {
       setIsLoading(true);
-      // Generate a UUID for academy_id (simulating a new academy creation)
+      
+      // Limpar estado de autenticação anterior
+      cleanupAuthState();
+      
+      // Gerar um UUID para academy_id (simulando a criação de uma nova academia)
       const academy_id = crypto.randomUUID();
       
       const { data, error } = await supabase.auth.signUp({
@@ -144,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data && data.user) {
-        // Insert user profile into usuarios table
+        // Inserir perfil de usuário na tabela usuarios
         const { error: profileError } = await supabase
           .from('usuarios')
           .insert({
@@ -160,15 +219,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         toast.success('Verifique seu e-mail para confirmar o cadastro!');
-        navigate('/login');
+        return data.user;
+      } else {
+        throw new Error('Falha ao criar usuário');
       }
     } catch (error: any) {
       console.error('Erro de cadastro:', error);
-      toast.error(
-        error.message.includes('email') 
-          ? 'Este e-mail já está em uso'
-          : 'Erro ao criar conta. Tente novamente.'
-      );
+      
+      let errorMessage = 'Erro ao criar conta. Tente novamente.';
+      if (error.message.includes('email') || error.message.includes('already')) {
+        errorMessage = 'Este e-mail já está em uso';
+      }
+      
+      toast.error(errorMessage);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -177,10 +241,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       setIsLoading(true);
-      await supabase.auth.signOut();
+      
+      // Limpar estado de autenticação
+      cleanupAuthState();
+      
+      // Tentar logout global
+      await supabase.auth.signOut({ scope: 'global' });
       setProfile(null);
-      navigate('/login');
+      setUser(null);
+      setSession(null);
+      
       toast.success('Desconectado com sucesso');
+      navigate('/login');
     } catch (error) {
       console.error('Erro ao sair:', error);
       toast.error('Erro ao desconectar');

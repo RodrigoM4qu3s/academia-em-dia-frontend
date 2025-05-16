@@ -3,12 +3,13 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const formSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
@@ -24,6 +25,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function SignUpForm() {
   const { signUp, isLoading } = useAuth();
+  const navigate = useNavigate();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -36,13 +38,19 @@ export function SignUpForm() {
   });
 
   const onSubmit = async (values: FormValues) => {
-    await signUp(values.nome, values.email, values.password);
+    try {
+      await signUp(values.nome, values.email, values.password);
+      toast.success('Verifique seu e-mail para confirmar o cadastro!');
+      navigate('/login');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao criar conta');
+    }
   };
 
   return (
-    <div className="form-card animate-fade-in">
-      <div className="form-title">Criar conta</div>
-      <div className="form-subtitle">Preencha seus dados para criar uma conta</div>
+    <div className="form-card w-full max-w-md rounded-lg border border-border bg-background p-8 shadow-lg animate-fade-in">
+      <div className="form-title mb-2 text-2xl font-bold">Criar conta</div>
+      <div className="form-subtitle mb-6 text-sm text-muted-foreground">Preencha seus dados para criar uma conta</div>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -136,7 +144,7 @@ export function SignUpForm() {
         </form>
       </Form>
       
-      <div className="form-footer">
+      <div className="form-footer mt-6 text-center text-sm">
         Já possui uma conta?{' '}
         <Link to="/login" className="text-primary hover:underline">
           Fazer login

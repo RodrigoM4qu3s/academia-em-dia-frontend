@@ -10,7 +10,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    // Show loading spinner while checking authentication
+    // Mostrar spinner de carregamento enquanto verifica autenticação
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
@@ -19,11 +19,11 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login page if not authenticated
+    // Redirecionar para a página de login se não estiver autenticado
     return <Navigate to="/login" replace />;
   }
 
-  // Render either the children or the outlet (for nested routes)
+  // Renderizar ou os filhos ou o outlet (para rotas aninhadas)
   return children ? <>{children}</> : <Outlet />;
 };
 
