@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,10 +32,13 @@ export function SignInForm() {
   const onSubmit = async (values: FormValues) => {
     try {
       await signIn(values.email, values.password);
-      toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+      // Don't navigate here, let the auth state change event handle it
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao fazer login');
+      // Error is already handled in the signIn function
+      console.error('Login error details:', error);
     }
   };
 

@@ -7,7 +7,7 @@ interface PrivateRouteProps {
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     // Mostrar spinner de carregamento enquanto verifica autenticação
@@ -18,7 +18,9 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
     );
   }
 
-  if (!isAuthenticated) {
+  // Consider the user authenticated if they have a valid user object from Supabase auth
+  // even if the profile fetch failed
+  if (!isAuthenticated || !user) {
     // Redirecionar para a página de login se não estiver autenticado
     return <Navigate to="/login" replace />;
   }

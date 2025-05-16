@@ -36,7 +36,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       if (error) {
         console.error('Erro ao buscar perfil:', error);
-        throw error;
+        
+        // If the profile doesn't exist yet but we have user data from auth,
+        // create a default profile using user metadata
+        if (error.code === 'PGRST116') {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) {
+            const userMetadata = userData.user.user_metadata;
+            const academyId = userMetadata?.academy_id || crypto.randomUUID();
+            const nome = userMetadata?.nome || userData.user.email?.split('@')[0] || 'Usuário';
+            
+            const defaultProfile: UserProfile = {
+              id: userId,
+              nome,
+              email: userData.user.email || '',
+              role: 'Administrador',
+              academy_id: academyId
+            };
+            
+            // Try to insert the profile
+            const { error: insertError } = await supabase
+              .from('usuarios')
+              .insert(defaultProfile);
+              
+            if (!insertError) {
+              console.log('Perfil padrão criado para o usuário:', userId);
+              setProfile(defaultProfile);
+              return;
+            } else {
+              console.error('Erro ao criar perfil padrão:', insertError);
+            }
+          }
+        }
       }
       
       if (data) {
@@ -48,7 +79,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Erro ao carregar perfil do usuário:', error);
-      setProfile(null);
+      // Even if there's an error fetching the profile, don't set it to null
+      // This ensures the user remains authenticated
     }
   };
 
@@ -127,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data && data.user) {
         await fetchUserProfile(data.user.id);
         toast.success('Login realizado com sucesso!');
+        // We don't navigate here anymore, as the auth state change will handle it
       }
     } catch (error: any) {
       console.error('Erro de login:', error);
@@ -183,7 +216,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
         if (profileError) {
-          throw profileError;
+          console.error('Erro ao criar perfil:', profileError);
+          // Continue anyway - we'll create the profile on login if needed
         }
 
         toast.success('Verifique seu e-mail para confirmar o cadastro!');
