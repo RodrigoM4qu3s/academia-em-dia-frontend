@@ -40,9 +40,11 @@ export function SignUpForm() {
   const onSubmit = async (values: FormValues) => {
     try {
       await signUp(values.nome, values.email, values.password);
-      toast.success('Verifique seu e-mail para confirmar o cadastro!');
-      navigate('/login');
+      toast.success('Conta criada com sucesso! Verifique seu e-mail.');
+      // Não navegar automaticamente para o login para que o usuário veja a mensagem
+      setTimeout(() => navigate('/login'), 2000);
     } catch (error: any) {
+      console.error("Erro detalhado:", error);
       toast.error(error.message || 'Erro ao criar conta');
     }
   };

@@ -219,7 +219,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         toast.success('Verifique seu e-mail para confirmar o cadastro!');
-        return data.user;
       } else {
         throw new Error('Falha ao criar usuário');
       }
