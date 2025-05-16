@@ -4,25 +4,8 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-
-type UserProfile = {
-  id: string;
-  nome: string;
-  email: string;
-  role: string;
-  academy_id: string;
-};
-
-interface AuthContextType {
-  user: User | null;
-  profile: UserProfile | null;
-  session: Session | null;
-  isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (nome: string, email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  isAuthenticated: boolean;
-}
+import { AuthContextType, UserProfile } from './types';
+import { cleanupAuthState } from './authUtils';
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -35,27 +18,39 @@ export const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
 });
 
-// Função para limpar o estado de autenticação
-const cleanupAuthState = () => {
-  localStorage.removeItem('supabase.auth.token');
-  Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-      localStorage.removeItem(key);
-    }
-  });
-  Object.keys(sessionStorage || {}).forEach((key) => {
-    if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-      sessionStorage.removeItem(key);
-    }
-  });
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      console.log('Buscando perfil para usuário:', userId);
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+        throw error;
+      }
+      
+      if (data) {
+        console.log('Perfil encontrado:', data);
+        setProfile(data as UserProfile);
+      } else {
+        console.warn('Nenhum perfil encontrado para o usuário:', userId);
+        setProfile(null);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar perfil do usuário:', error);
+      setProfile(null);
+    }
+  };
 
   useEffect(() => {
     const setupAuth = async () => {
@@ -104,33 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setupAuth();
   }, []);
-
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      console.log('Buscando perfil para usuário:', userId);
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      if (error) {
-        console.error('Erro ao buscar perfil:', error);
-        throw error;
-      }
-      
-      if (data) {
-        console.log('Perfil encontrado:', data);
-        setProfile(data as UserProfile);
-      } else {
-        console.warn('Nenhum perfil encontrado para o usuário:', userId);
-        setProfile(null);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar perfil do usuário:', error);
-      setProfile(null);
-    }
-  };
 
   const signIn = async (email: string, password: string) => {
     try {
